@@ -1,0 +1,209 @@
+@page "/business-partners/{CardCode}"
+@rendermode InteractiveServer
+@attribute [Authorize]
+@inject BusinessPartnerApiClient BpClient
+@inject NavigationManager Navigation
+@using Microsoft.AspNetCore.Authorization
+@using SAPBOneWrapper.Application.DTOs
+@using SAPBOneWrapper.Domain.Enums
+
+<PageTitle>Business Partner: @CardCode</PageTitle>
+
+@if (isLoading)
+{
+    <div class="text-center py-4">
+        <div class="spinner-border" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+}
+else if (bp is null)
+{
+    <div class="alert alert-danger">Business partner not found.</div>
+    <a href="business-partners" class="btn btn-secondary">Back to List</a>
+}
+else
+{
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h3>@bp.CardName <span class="badge bg-info fs-6">@bp.CardType</span></h3>
+        <div>
+            <a href="business-partners/@bp.CardCode/edit" class="btn btn-warning">Edit</a>
+            <button class="btn btn-danger" @onclick="ConfirmDelete">Delete</button>
+            <a href="business-partners" class="btn btn-secondary">Back to List</a>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrEmpty(alertMessage))
+    {
+        <div class="alert @alertClass">@alertMessage</div>
+    }
+
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card mb-3">
+                <div class="card-header"><strong>General Information</strong></div>
+                <div class="card-body">
+                    <dl class="row mb-0">
+                        <dt class="col-sm-4">Card Code</dt>
+                        <dd class="col-sm-8">@bp.CardCode</dd>
+
+                        <dt class="col-sm-4">Card Name</dt>
+                        <dd class="col-sm-8">@bp.CardName</dd>
+
+                        <dt class="col-sm-4">Card Type</dt>
+                        <dd class="col-sm-8">@bp.CardType</dd>
+
+                        <dt class="col-sm-4">Active</dt>
+                        <dd class="col-sm-8">
+                            <span class="badge @(bp.Active ? "bg-success" : "bg-secondary")">
+                                @(bp.Active ? "Yes" : "No")
+                            </span>
+                        </dd>
+
+                        <dt class="col-sm-4">Phone</dt>
+                        <dd class="col-sm-8">@(bp.Phone ?? "—")</dd>
+
+                        <dt class="col-sm-4">Email</dt>
+                        <dd class="col-sm-8">@(bp.Email ?? "—")</dd>
+
+                        <dt class="col-sm-4">Tax ID</dt>
+                        <dd class="col-sm-8">@(bp.TaxId ?? "—")</dd>
+                    </dl>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="card mb-3">
+                <div class="card-header"><strong>Address & Financial</strong></div>
+                <div class="card-body">
+                    <dl class="row mb-0">
+                        <dt class="col-sm-4">Address</dt>
+                        <dd class="col-sm-8">@(bp.Address ?? "—")</dd>
+
+                        <dt class="col-sm-4">City</dt>
+                        <dd class="col-sm-8">@(bp.City ?? "—")</dd>
+
+                        <dt class="col-sm-4">Country</dt>
+                        <dd class="col-sm-8">@(bp.Country ?? "—")</dd>
+
+                        <dt class="col-sm-4">Post Code</dt>
+                        <dd class="col-sm-8">@(bp.PostCode ?? "—")</dd>
+
+                        <dt class="col-sm-4">Currency</dt>
+                        <dd class="col-sm-8">@(bp.Currency ?? "—")</dd>
+
+                        <dt class="col-sm-4">Credit Limit</dt>
+                        <dd class="col-sm-8">@(bp.CreditLimit?.ToString("N2") ?? "—")</dd>
+                    </dl>
+                </div>
+            </div>
+
+            <div class="card mb-3">
+                <div class="card-header"><strong>Sync & Metadata</strong></div>
+                <div class="card-body">
+                    <dl class="row mb-0">
+                        <dt class="col-sm-4">Sync Status</dt>
+                        <dd class="col-sm-8">
+                            <span class="badge @GetSyncBadgeClass(bp.SyncStatus)">@bp.SyncStatus</span>
+                        </dd>
+
+                        <dt class="col-sm-4">Created At</dt>
+                        <dd class="col-sm-8">@bp.CreatedAt.ToString("g")</dd>
+
+                        <dt class="col-sm-4">Updated At</dt>
+                        <dd class="col-sm-8">@bp.UpdatedAt.ToString("g")</dd>
+
+                        <dt class="col-sm-4">Last Synced</dt>
+                        <dd class="col-sm-8">@(bp.LastSyncedAt?.ToString("g") ?? "Never")</dd>
+                    </dl>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrEmpty(bp.Remarks))
+    {
+        <div class="card">
+            <div class="card-header"><strong>Remarks</strong></div>
+            <div class="card-body">@bp.Remarks</div>
+        </div>
+    }
+}
+
+@* Delete confirmation modal *@
+@if (showDeleteConfirm)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Confirm Delete</h5>
+                    <button type="button" class="btn-close" @onclick="() => showDeleteConfirm = false"></button>
+                </div>
+                <div class="modal-body">
+                    Are you sure you want to delete <strong>@bp?.CardCode</strong>? This will also remove it from SAP B1.
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" @onclick="() => showDeleteConfirm = false">Cancel</button>
+                    <button class="btn btn-danger" @onclick="DeleteConfirmed">Delete</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter]
+    public string CardCode { get; set; } = string.Empty;
+
+    private BusinessPartnerDto? bp;
+    private bool isLoading = true;
+    private bool showDeleteConfirm;
+    private string? alertMessage;
+    private string alertClass = "alert-info";
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            bp = await BpClient.GetByCodeAsync(CardCode);
+        }
+        catch (Exception ex)
+        {
+            alertMessage = $"Error: {ex.Message}";
+            alertClass = "alert-danger";
+        }
+        isLoading = false;
+    }
+
+    private void ConfirmDelete()
+    {
+        showDeleteConfirm = true;
+    }
+
+    private async Task DeleteConfirmed()
+    {
+        showDeleteConfirm = false;
+        try
+        {
+            await BpClient.DeleteAsync(CardCode);
+            Navigation.NavigateTo("/business-partners");
+        }
+        catch (Exception ex)
+        {
+            alertMessage = $"Delete failed: {ex.Message}";
+            alertClass = "alert-danger";
+        }
+    }
+
+    private static string GetSyncBadgeClass(SyncStatus status) => status switch
+    {
+        SyncStatus.Synced => "bg-success",
+        SyncStatus.PendingCreate => "bg-warning text-dark",
+        SyncStatus.PendingUpdate => "bg-warning text-dark",
+        SyncStatus.PendingDelete => "bg-warning text-dark",
+        SyncStatus.Error => "bg-danger",
+        _ => "bg-secondary"
+    };
+}

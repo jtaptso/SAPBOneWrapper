@@ -1,0 +1,13 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/SAPBOneWrapper.Api/SAPBOneWrapper.Api.csproj" />
+    <Project Path="src/SAPBOneWrapper.Application/SAPBOneWrapper.Application.csproj" />
+    <Project Path="src/SAPBOneWrapper.Domain/SAPBOneWrapper.Domain.csproj" />
+    <Project Path="src/SAPBOneWrapper.Infrastructure/SAPBOneWrapper.Infrastructure.csproj" />
+    <Project Path="src/SAPBOneWrapper.Web/SAPBOneWrapper.Web.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/SAPBOneWrapper.IntegrationTests/SAPBOneWrapper.IntegrationTests.csproj" />
+    <Project Path="tests/SAPBOneWrapper.UnitTests/SAPBOneWrapper.UnitTests.csproj" />
+  </Folder>
+</Solution>

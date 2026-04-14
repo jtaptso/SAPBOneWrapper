@@ -1,0 +1,240 @@
+@page "/business-partners"
+@rendermode InteractiveServer
+@attribute [Authorize]
+@inject BusinessPartnerApiClient BpClient
+@inject NavigationManager Navigation
+@using Microsoft.AspNetCore.Authorization
+@using SAPBOneWrapper.Application.DTOs
+
+<PageTitle>Business Partners</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h3>Business Partners</h3>
+    <div>
+        <button class="btn btn-outline-secondary me-2" @onclick="SyncFromSap" disabled="@isSyncing">
+            @(isSyncing ? "Syncing..." : "Sync from SAP")
+        </button>
+        <a href="business-partners/create" class="btn btn-primary">Add New</a>
+    </div>
+</div>
+
+@if (!string.IsNullOrEmpty(alertMessage))
+{
+    <div class="alert @alertClass alert-dismissible fade show">
+        @alertMessage
+        <button type="button" class="btn-close" @onclick="() => alertMessage = null"></button>
+    </div>
+}
+
+<div class="mb-3">
+    <input type="text" class="form-control" placeholder="Search by code, name, or email..."
+           @bind="searchTerm" @bind:event="oninput" @bind:after="OnSearchChanged" />
+</div>
+
+@if (isLoading)
+{
+    <div class="text-center py-4">
+        <div class="spinner-border" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+}
+else if (result?.Items.Count > 0)
+{
+    <div class="table-responsive">
+        <table class="table table-striped table-hover">
+            <thead class="table-dark">
+                <tr>
+                    <th>Card Code</th>
+                    <th>Card Name</th>
+                    <th>Type</th>
+                    <th>Phone</th>
+                    <th>Email</th>
+                    <th>City</th>
+                    <th>Sync Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var bp in result.Items)
+                {
+                    <tr>
+                        <td>@bp.CardCode</td>
+                        <td>@bp.CardName</td>
+                        <td><span class="badge bg-info">@bp.CardType</span></td>
+                        <td>@bp.Phone</td>
+                        <td>@bp.Email</td>
+                        <td>@bp.City</td>
+                        <td>
+                            <span class="badge @GetSyncBadgeClass(bp.SyncStatus)">@bp.SyncStatus</span>
+                        </td>
+                        <td>
+                            <a href="business-partners/@bp.CardCode" class="btn btn-sm btn-outline-info">View</a>
+                            <a href="business-partners/@bp.CardCode/edit" class="btn btn-sm btn-outline-warning">Edit</a>
+                            <button class="btn btn-sm btn-outline-danger" @onclick="() => ConfirmDelete(bp.CardCode)">Delete</button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
+    @* Pagination *@
+    @if (result.TotalPages > 1)
+    {
+        <nav>
+            <ul class="pagination justify-content-center">
+                <li class="page-item @(!result.HasPrevious ? "disabled" : "")">
+                    <button class="page-link" @onclick="() => GoToPage(currentPage - 1)">Previous</button>
+                </li>
+                @for (var i = 1; i <= result.TotalPages; i++)
+                {
+                    var pageNum = i;
+                    <li class="page-item @(pageNum == currentPage ? "active" : "")">
+                        <button class="page-link" @onclick="() => GoToPage(pageNum)">@pageNum</button>
+                    </li>
+                }
+                <li class="page-item @(!result.HasNext ? "disabled" : "")">
+                    <button class="page-link" @onclick="() => GoToPage(currentPage + 1)">Next</button>
+                </li>
+            </ul>
+        </nav>
+    }
+}
+else
+{
+    <div class="alert alert-info">No business partners found. Click "Sync from SAP" or "Add New" to get started.</div>
+}
+
+@* Delete confirmation modal *@
+@if (deleteCardCode is not null)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Confirm Delete</h5>
+                    <button type="button" class="btn-close" @onclick="() => deleteCardCode = null"></button>
+                </div>
+                <div class="modal-body">
+                    Are you sure you want to delete business partner <strong>@deleteCardCode</strong>? This will also remove it from SAP B1.
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" @onclick="() => deleteCardCode = null">Cancel</button>
+                    <button class="btn btn-danger" @onclick="DeleteConfirmed">Delete</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private PagedResultDto<BusinessPartnerDto>? result;
+    private string? searchTerm;
+    private int currentPage = 1;
+    private const int PageSize = 20;
+    private bool isLoading = true;
+    private bool isSyncing;
+    private string? alertMessage;
+    private string alertClass = "alert-info";
+    private string? deleteCardCode;
+    private System.Timers.Timer? debounceTimer;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        isLoading = true;
+        try
+        {
+            result = await BpClient.GetAllAsync(searchTerm, currentPage, PageSize);
+        }
+        catch (Exception ex)
+        {
+            alertMessage = $"Error loading data: {ex.Message}";
+            alertClass = "alert-danger";
+        }
+        isLoading = false;
+    }
+
+    private void OnSearchChanged()
+    {
+        debounceTimer?.Stop();
+        debounceTimer?.Dispose();
+        debounceTimer = new System.Timers.Timer(300);
+        debounceTimer.Elapsed += async (_, _) =>
+        {
+            debounceTimer.Stop();
+            currentPage = 1;
+            await InvokeAsync(async () =>
+            {
+                await LoadData();
+                StateHasChanged();
+            });
+        };
+        debounceTimer.Start();
+    }
+
+    private async Task GoToPage(int page)
+    {
+        currentPage = page;
+        await LoadData();
+    }
+
+    private async Task SyncFromSap()
+    {
+        isSyncing = true;
+        alertMessage = null;
+        try
+        {
+            var syncResult = await BpClient.SyncAsync();
+            alertMessage = syncResult?.Message ?? "Sync completed.";
+            alertClass = "alert-success";
+            await LoadData();
+        }
+        catch (Exception ex)
+        {
+            alertMessage = $"Sync failed: {ex.Message}";
+            alertClass = "alert-danger";
+        }
+        isSyncing = false;
+    }
+
+    private void ConfirmDelete(string cardCode)
+    {
+        deleteCardCode = cardCode;
+    }
+
+    private async Task DeleteConfirmed()
+    {
+        if (deleteCardCode is null) return;
+
+        try
+        {
+            await BpClient.DeleteAsync(deleteCardCode);
+            alertMessage = $"Business partner '{deleteCardCode}' deleted.";
+            alertClass = "alert-success";
+            deleteCardCode = null;
+            await LoadData();
+        }
+        catch (Exception ex)
+        {
+            alertMessage = $"Delete failed: {ex.Message}";
+            alertClass = "alert-danger";
+            deleteCardCode = null;
+        }
+    }
+
+    private static string GetSyncBadgeClass(Domain.Enums.SyncStatus status) => status switch
+    {
+        Domain.Enums.SyncStatus.Synced => "bg-success",
+        Domain.Enums.SyncStatus.PendingCreate => "bg-warning text-dark",
+        Domain.Enums.SyncStatus.PendingUpdate => "bg-warning text-dark",
+        Domain.Enums.SyncStatus.PendingDelete => "bg-warning text-dark",
+        Domain.Enums.SyncStatus.Error => "bg-danger",
+        _ => "bg-secondary"
+    };
+}

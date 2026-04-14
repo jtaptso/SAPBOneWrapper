@@ -1,0 +1,6 @@
+@SAPBOneWrapper.Api_HostAddress = http://localhost:5262
+
+GET {{SAPBOneWrapper.Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

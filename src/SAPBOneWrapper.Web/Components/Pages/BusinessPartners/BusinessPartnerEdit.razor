@@ -1,0 +1,183 @@
+@page "/business-partners/{CardCode}/edit"
+@rendermode InteractiveServer
+@attribute [Authorize]
+@inject BusinessPartnerApiClient BpClient
+@inject NavigationManager Navigation
+@using Microsoft.AspNetCore.Authorization
+@using SAPBOneWrapper.Application.DTOs
+
+<PageTitle>Edit Business Partner</PageTitle>
+
+<h3 class="mb-4">Edit Business Partner: @CardCode</h3>
+
+@if (isLoading)
+{
+    <div class="text-center py-4">
+        <div class="spinner-border" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+}
+else if (model is null)
+{
+    <div class="alert alert-danger">Business partner not found.</div>
+}
+else
+{
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="alert alert-danger">@errorMessage</div>
+    }
+
+    <EditForm Model="model" OnValidSubmit="HandleSubmit" FormName="edit-bp">
+        <DataAnnotationsValidator />
+
+        <div class="row">
+            <div class="col-md-6">
+                <div class="mb-3">
+                    <label class="form-label">Card Code</label>
+                    <input class="form-control" value="@CardCode" readonly />
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Card Name *</label>
+                    <InputText class="form-control" @bind-Value="model.CardName" />
+                    <ValidationMessage For="() => model.CardName" />
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Phone</label>
+                    <InputText class="form-control" @bind-Value="model.Phone" />
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Email</label>
+                    <InputText class="form-control" @bind-Value="model.Email" />
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Tax ID</label>
+                    <InputText class="form-control" @bind-Value="model.TaxId" />
+                </div>
+
+                <div class="form-check mb-3">
+                    <InputCheckbox class="form-check-input" @bind-Value="model.Active" />
+                    <label class="form-check-label">Active</label>
+                </div>
+            </div>
+
+            <div class="col-md-6">
+                <div class="mb-3">
+                    <label class="form-label">Address</label>
+                    <InputText class="form-control" @bind-Value="model.Address" />
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">City</label>
+                    <InputText class="form-control" @bind-Value="model.City" />
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Country</label>
+                    <InputText class="form-control" @bind-Value="model.Country" />
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Post Code</label>
+                    <InputText class="form-control" @bind-Value="model.PostCode" />
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Currency</label>
+                    <InputText class="form-control" @bind-Value="model.Currency" />
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Credit Limit</label>
+                    <InputNumber class="form-control" @bind-Value="model.CreditLimit" />
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Remarks</label>
+                    <InputTextArea class="form-control" rows="3" @bind-Value="model.Remarks" />
+                </div>
+            </div>
+        </div>
+
+        <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-primary" disabled="@isSubmitting">
+                @(isSubmitting ? "Saving..." : "Save Changes")
+            </button>
+            <a href="business-partners/@CardCode" class="btn btn-secondary">Cancel</a>
+        </div>
+    </EditForm>
+}
+
+@code {
+    [Parameter]
+    public string CardCode { get; set; } = string.Empty;
+
+    private UpdateBusinessPartnerDto? model;
+    private string? errorMessage;
+    private bool isLoading = true;
+    private bool isSubmitting;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var bp = await BpClient.GetByCodeAsync(CardCode);
+            if (bp is not null)
+            {
+                model = new UpdateBusinessPartnerDto
+                {
+                    CardName = bp.CardName,
+                    Phone = bp.Phone,
+                    Email = bp.Email,
+                    Address = bp.Address,
+                    City = bp.City,
+                    Country = bp.Country,
+                    PostCode = bp.PostCode,
+                    Currency = bp.Currency,
+                    CreditLimit = bp.CreditLimit,
+                    TaxId = bp.TaxId,
+                    Active = bp.Active,
+                    Remarks = bp.Remarks
+                };
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error loading business partner: {ex.Message}";
+        }
+        isLoading = false;
+    }
+
+    private async Task HandleSubmit()
+    {
+        if (model is null) return;
+
+        isSubmitting = true;
+        errorMessage = null;
+
+        try
+        {
+            var response = await BpClient.UpdateAsync(CardCode, model);
+            if (response.IsSuccessStatusCode)
+            {
+                Navigation.NavigateTo($"/business-partners/{CardCode}");
+            }
+            else
+            {
+                var body = await response.Content.ReadAsStringAsync();
+                errorMessage = $"Failed to update: {body}";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error: {ex.Message}";
+        }
+
+        isSubmitting = false;
+    }
+}

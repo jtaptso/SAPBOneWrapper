@@ -1,0 +1,137 @@
+@page "/business-partners/create"
+@rendermode InteractiveServer
+@attribute [Authorize]
+@inject BusinessPartnerApiClient BpClient
+@inject NavigationManager Navigation
+@using Microsoft.AspNetCore.Authorization
+@using SAPBOneWrapper.Application.DTOs
+@using SAPBOneWrapper.Domain.Enums
+
+<PageTitle>Create Business Partner</PageTitle>
+
+<h3 class="mb-4">Create Business Partner</h3>
+
+@if (!string.IsNullOrEmpty(errorMessage))
+{
+    <div class="alert alert-danger">@errorMessage</div>
+}
+
+<EditForm Model="model" OnValidSubmit="HandleSubmit" FormName="create-bp">
+    <DataAnnotationsValidator />
+
+    <div class="row">
+        <div class="col-md-6">
+            <div class="mb-3">
+                <label class="form-label">Card Code *</label>
+                <InputText class="form-control" @bind-Value="model.CardCode" />
+                <ValidationMessage For="() => model.CardCode" />
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Card Name *</label>
+                <InputText class="form-control" @bind-Value="model.CardName" />
+                <ValidationMessage For="() => model.CardName" />
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Card Type *</label>
+                <InputSelect class="form-select" @bind-Value="model.CardType">
+                    <option value="@CardType.Customer">Customer</option>
+                    <option value="@CardType.Supplier">Supplier</option>
+                    <option value="@CardType.Lead">Lead</option>
+                </InputSelect>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Phone</label>
+                <InputText class="form-control" @bind-Value="model.Phone" />
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Email</label>
+                <InputText class="form-control" @bind-Value="model.Email" />
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Tax ID</label>
+                <InputText class="form-control" @bind-Value="model.TaxId" />
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="mb-3">
+                <label class="form-label">Address</label>
+                <InputText class="form-control" @bind-Value="model.Address" />
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">City</label>
+                <InputText class="form-control" @bind-Value="model.City" />
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Country</label>
+                <InputText class="form-control" @bind-Value="model.Country" />
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Post Code</label>
+                <InputText class="form-control" @bind-Value="model.PostCode" />
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Currency</label>
+                <InputText class="form-control" @bind-Value="model.Currency" />
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Credit Limit</label>
+                <InputNumber class="form-control" @bind-Value="model.CreditLimit" />
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Remarks</label>
+                <InputTextArea class="form-control" rows="3" @bind-Value="model.Remarks" />
+            </div>
+        </div>
+    </div>
+
+    <div class="d-flex gap-2">
+        <button type="submit" class="btn btn-primary" disabled="@isSubmitting">
+            @(isSubmitting ? "Creating..." : "Create")
+        </button>
+        <a href="business-partners" class="btn btn-secondary">Cancel</a>
+    </div>
+</EditForm>
+
+@code {
+    private CreateBusinessPartnerDto model = new() { CardType = CardType.Customer };
+    private string? errorMessage;
+    private bool isSubmitting;
+
+    private async Task HandleSubmit()
+    {
+        isSubmitting = true;
+        errorMessage = null;
+
+        try
+        {
+            var response = await BpClient.CreateAsync(model);
+            if (response.IsSuccessStatusCode)
+            {
+                Navigation.NavigateTo("/business-partners");
+            }
+            else
+            {
+                var body = await response.Content.ReadAsStringAsync();
+                errorMessage = $"Failed to create business partner: {body}";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error: {ex.Message}";
+        }
+
+        isSubmitting = false;
+    }
+}

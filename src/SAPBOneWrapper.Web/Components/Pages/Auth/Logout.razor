@@ -1,0 +1,14 @@
+@page "/logout"
+@rendermode InteractiveServer
+@inject AuthApiClient AuthClient
+@inject NavigationManager Navigation
+
+<PageTitle>Logout</PageTitle>
+
+@code {
+    protected override void OnInitialized()
+    {
+        AuthClient.Logout();
+        Navigation.NavigateTo("/login");
+    }
+}
