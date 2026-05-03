@@ -1,48 +1,62 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Components.Authorization;
+using Microsoft.JSInterop;
 
 namespace SAPBOneWrapper.Web.Services;
 
-public class JwtAuthenticationStateProvider : AuthenticationStateProvider
+public class JwtAuthenticationStateProvider(IJSRuntime js) : AuthenticationStateProvider
 {
+    private const string StorageKey = "auth_token";
     private string? _token;
-    private ClaimsPrincipal _anonymous = new(new ClaimsIdentity());
+    private readonly ClaimsPrincipal _anonymous = new(new ClaimsIdentity());
 
     public string? Token => _token;
 
-    public void SetToken(string token)
+    public async Task SetTokenAsync(string token)
     {
         _token = token;
+        try { await js.InvokeVoidAsync("sessionStorage.setItem", StorageKey, token); }
+        catch { /* JS unavailable during SSR */ }
         NotifyAuthenticationStateChanged(GetAuthenticationStateAsync());
     }
 
-    public void ClearToken()
+    public async Task ClearTokenAsync()
     {
         _token = null;
+        try { await js.InvokeVoidAsync("sessionStorage.removeItem", StorageKey); }
+        catch { /* JS unavailable during SSR */ }
         NotifyAuthenticationStateChanged(GetAuthenticationStateAsync());
     }
 
-    public override Task<AuthenticationState> GetAuthenticationStateAsync()
+    public override async Task<AuthenticationState> GetAuthenticationStateAsync()
     {
         if (string.IsNullOrEmpty(_token))
-            return Task.FromResult(new AuthenticationState(_anonymous));
+        {
+            try { _token = await js.InvokeAsync<string?>("sessionStorage.getItem", StorageKey); }
+            catch { /* JS unavailable during SSR — return anonymous */ }
+        }
+
+        if (string.IsNullOrEmpty(_token))
+            return new AuthenticationState(_anonymous);
 
         var handler = new JwtSecurityTokenHandler();
 
         if (!handler.CanReadToken(_token))
-            return Task.FromResult(new AuthenticationState(_anonymous));
+            return new AuthenticationState(_anonymous);
 
         var jwt = handler.ReadJwtToken(_token);
 
         if (jwt.ValidTo < DateTime.UtcNow)
         {
             _token = null;
-            return Task.FromResult(new AuthenticationState(_anonymous));
+            try { await js.InvokeVoidAsync("sessionStorage.removeItem", StorageKey); }
+            catch { }
+            return new AuthenticationState(_anonymous);
         }
 
         var identity = new ClaimsIdentity(jwt.Claims, "jwt");
         var user = new ClaimsPrincipal(identity);
-        return Task.FromResult(new AuthenticationState(user));
+        return new AuthenticationState(user);
     }
 }

@@ -19,7 +19,7 @@ public class AuthApiClient(HttpClient httpClient, JwtAuthenticationStateProvider
         if (result?.Token is null)
             return new LoginResult { Success = false, Error = "Login failed." };
 
-        authState.SetToken(result.Token);
+        await authState.SetTokenAsync(result.Token);
         return new LoginResult { Success = true };
     }
 
@@ -42,9 +42,9 @@ public class AuthApiClient(HttpClient httpClient, JwtAuthenticationStateProvider
         return new RegisterResult { Success = true };
     }
 
-    public void Logout()
+    public async Task LogoutAsync()
     {
-        authState.ClearToken();
+        await authState.ClearTokenAsync();
     }
 }
 
