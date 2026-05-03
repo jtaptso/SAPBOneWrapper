@@ -61,7 +61,7 @@ else if (result?.Items.Count > 0)
                     <tr>
                         <td>@bp.CardCode</td>
                         <td>@bp.CardName</td>
-                        <td><span class="badge bg-info">@bp.CardType</span></td>
+                        <td><span class="badge @GetCardTypeBadgeClass(bp.CardType)">@bp.CardType</span></td>
                         <td>@bp.Phone</td>
                         <td>@bp.Email</td>
                         <td>@bp.City</td>
@@ -227,6 +227,14 @@ else
             deleteCardCode = null;
         }
     }
+
+    private static string GetCardTypeBadgeClass(Domain.Enums.CardType cardType) => cardType switch
+    {
+        Domain.Enums.CardType.Customer => "bg-primary",
+        Domain.Enums.CardType.Supplier => "bg-success",
+        Domain.Enums.CardType.Lead     => "bg-warning text-dark",
+        _ => "bg-secondary"
+    };
 
     private static string GetSyncBadgeClass(Domain.Enums.SyncStatus status) => status switch
     {
