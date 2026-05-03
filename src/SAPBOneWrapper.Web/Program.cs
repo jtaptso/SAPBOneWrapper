@@ -9,7 +9,12 @@ builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
 // Auth state
-builder.Services.AddAuthentication();
+builder.Services.AddAuthentication(options =>
+{
+    options.DefaultAuthenticateScheme = "Cookies";
+    options.DefaultChallengeScheme = "Cookies";
+})
+.AddCookie("Cookies", options => options.LoginPath = "/login");
 builder.Services.AddScoped<AuthenticationStateProvider, JwtAuthenticationStateProvider>();
 builder.Services.AddScoped<JwtAuthenticationStateProvider>(sp =>
     (JwtAuthenticationStateProvider)sp.GetRequiredService<AuthenticationStateProvider>());
