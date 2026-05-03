@@ -70,4 +70,10 @@ app.UseFastEndpoints(c =>
 });
 app.UseSwaggerGen();
 
+// Seed initial data
+using (var scope = app.Services.CreateScope())
+{
+    await SAPBOneWrapper.Infrastructure.Data.DbSeeder.SeedAsync(scope.ServiceProvider);
+}
+
 app.Run();
