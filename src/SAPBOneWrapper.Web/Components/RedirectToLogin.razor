@@ -1,0 +1,11 @@
+@inject NavigationManager Navigation
+
+@code {
+    // OnAfterRender only runs in interactive mode (after circuit connects), never during SSR prerender.
+    // This prevents redirect loops on the first server-side render when JS/sessionStorage is unavailable.
+    protected override void OnAfterRender(bool firstRender)
+    {
+        if (firstRender)
+            Navigation.NavigateTo("/login", replace: true);
+    }
+}

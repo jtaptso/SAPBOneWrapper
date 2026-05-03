@@ -48,6 +48,7 @@ app.UseAntiforgery();
 
 app.MapStaticAssets();
 app.MapRazorComponents<App>()
-    .AddInteractiveServerRenderMode();
+    .AddInteractiveServerRenderMode()
+    .AllowAnonymous(); // HTTP-level auth disabled; [Authorize] enforced by AuthorizeRouteView via JwtAuthenticationStateProvider
 
 app.Run();
