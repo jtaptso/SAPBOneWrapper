@@ -9,6 +9,7 @@ builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
 // Auth state
+builder.Services.AddAuthentication();
 builder.Services.AddScoped<AuthenticationStateProvider, JwtAuthenticationStateProvider>();
 builder.Services.AddScoped<JwtAuthenticationStateProvider>(sp =>
     (JwtAuthenticationStateProvider)sp.GetRequiredService<AuthenticationStateProvider>());
